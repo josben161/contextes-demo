@@ -1,20 +1,22 @@
 // Required environment variables: OPENAI_API_KEY, PINECONE_API_KEY, PINECONE_ENV, PINECONE_INDEX, CHUNKS_TABLE, PACKS_TABLE, S3_BUCKET
-// npm install @aws-sdk/client-s3 @aws-sdk/client-dynamodb pdf-parse html-to-text openai @pinecone-database/pinecone uuid
+// npm install @aws-sdk/client-s3 @aws-sdk/client-dynamodb pdf-parse html-to-text openai uuid
 // npm install --save-dev @types/html-to-text
 
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { DynamoDBClient, UpdateItemCommand, PutItemCommand } from '@aws-sdk/client-dynamodb';
 import pdfParse from 'pdf-parse';
 import { htmlToText } from 'html-to-text';
-import { OpenAIApi, Configuration } from 'openai';
-import { PineconeClient } from '@pinecone-database/pinecone';
+import OpenAI from 'openai';
 import { v4 as uuidv4 } from 'uuid';
 import { SQSEvent } from 'aws-lambda';
+import { Buffer } from 'buffer';
+// Pinecone v6+ (JS SDK)
+import { Pinecone } from '@pinecone-database/pinecone';
 
 const s3 = new S3Client({});
 const dynamo = new DynamoDBClient({});
-const openai = new OpenAIApi(new Configuration({ apiKey: process.env.OPENAI_API_KEY }));
-const pinecone = new PineconeClient();
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const pinecone = new Pinecone({ apiKey: process.env.PINECONE_API_KEY! });
 
 const S3_BUCKET = process.env.S3_BUCKET!;
 const CHUNKS_TABLE = process.env.CHUNKS_TABLE!;
@@ -25,7 +27,7 @@ const PINECONE_ENV = process.env.PINECONE_ENV!;
 // Helper: Split text into ~800-token chunks (naive, by words)
 function splitText(text: string, maxTokens = 800): string[] {
   const words = text.split(/\s+/);
-  const chunks = [];
+  const chunks: string[] = [];
   for (let i = 0; i < words.length; i += maxTokens) {
     chunks.push(words.slice(i, i + maxTokens).join(' '));
   }
@@ -33,11 +35,8 @@ function splitText(text: string, maxTokens = 800): string[] {
 }
 
 export const handler = async (event: SQSEvent) => {
-  await pinecone.init({
-    apiKey: process.env.PINECONE_API_KEY!,
-    environment: PINECONE_ENV,
-  });
-  const index = pinecone.Index(PINECONE_INDEX);
+  // Pinecone v6: index(name, environment)
+  const index = pinecone.index(PINECONE_INDEX, PINECONE_ENV);
 
   for (const record of event.Records) {
     const { s3Key, pack, licence } = JSON.parse(record.body);
@@ -62,13 +61,17 @@ export const handler = async (event: SQSEvent) => {
     // Split into chunks
     const chunks = splitText(text, 800);
     // Embed and upsert
-    const vectors = [];
+    const vectors: {
+      id: string;
+      values: number[];
+      metadata: Record<string, any>;
+    }[] = [];
     for (const chunk of chunks) {
-      const embeddingResp = await openai.createEmbedding({
+      const embeddingResp = await openai.embeddings.create({
         model: 'text-embedding-3-large',
         input: chunk,
       });
-      const embedding = embeddingResp.data.data[0].embedding;
+      const embedding = embeddingResp.data[0].embedding;
       const chunkId = uuidv4();
       vectors.push({
         id: chunkId,
@@ -86,12 +89,8 @@ export const handler = async (event: SQSEvent) => {
         },
       }));
     }
-    await index.upsert({
-      upsertRequest: {
-        vectors,
-        namespace: pack,
-      },
-    });
+    const vectorsWithNamespace = vectors.map(v => ({ ...v, namespace: pack }));
+    await index.upsert(vectorsWithNamespace);
     // Increment chunkCount in PacksTable
     await dynamo.send(new UpdateItemCommand({
       TableName: PACKS_TABLE,

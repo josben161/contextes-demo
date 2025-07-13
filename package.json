@@ -18,14 +18,19 @@
     "aws-lambda": "^1.0.7",
     "busboy": "^1.6.0",
     "html-to-text": "^9.0.5",
+    "langchain": "^0.3.29",
     "openai": "^5.9.0",
     "pdf-parse": "^1.1.1",
+    "pinecone-client": "^2.0.0",
+    "stripe": "^18.3.0",
+    "ts-node": "^10.9.2",
     "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@types/busboy": "^1.5.4",
     "@types/html-to-text": "^9.0.4",
     "@types/node": "^24.0.13",
+    "@types/stripe": "^8.0.417",
     "@types/uuid": "^10.0.0"
   }
 }
