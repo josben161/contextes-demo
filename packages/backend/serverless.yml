@@ -1,0 +1,127 @@
+service: contextes-demo-backend
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: us-east-1
+  environment:
+    OPENAI_API_KEY: ${env:OPENAI_API_KEY}
+    PINECONE_API_KEY: ${env:PINECONE_API_KEY}
+    STRIPE_SECRET: ${env:STRIPE_SECRET}
+
+functions:
+  ingest:
+    handler: ingest.handler
+    events:
+      - http:
+          path: /ingest
+          method: post
+          cors: true
+    environment:
+      OPENAI_API_KEY: ${env:OPENAI_API_KEY}
+      PINECONE_API_KEY: ${env:PINECONE_API_KEY}
+      STRIPE_SECRET: ${env:STRIPE_SECRET}
+
+  chunkEmbedWorker:
+    handler: chunkEmbedWorker.handler
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt: [IngestJobs, Arn]
+    environment:
+      OPENAI_API_KEY: ${env:OPENAI_API_KEY}
+      PINECONE_API_KEY: ${env:PINECONE_API_KEY}
+      STRIPE_SECRET: ${env:STRIPE_SECRET}
+
+  router:
+    handler: router.handler
+    events:
+      - http:
+          path: /route-context
+          method: post
+          cors: true
+    environment:
+      OPENAI_API_KEY: ${env:OPENAI_API_KEY}
+      PINECONE_API_KEY: ${env:PINECONE_API_KEY}
+      STRIPE_SECRET: ${env:STRIPE_SECRET}
+
+  explain:
+    handler: explain.handler
+    events:
+      - http:
+          path: /explain/{traceId}
+          method: get
+          cors: true
+    environment:
+      OPENAI_API_KEY: ${env:OPENAI_API_KEY}
+      PINECONE_API_KEY: ${env:PINECONE_API_KEY}
+      STRIPE_SECRET: ${env:STRIPE_SECRET}
+
+  stripeHook:
+    handler: stripeHook.handler
+    events:
+      - http:
+          path: /stripe-webhook
+          method: post
+          cors: true
+    environment:
+      OPENAI_API_KEY: ${env:OPENAI_API_KEY}
+      PINECONE_API_KEY: ${env:PINECONE_API_KEY}
+      STRIPE_SECRET: ${env:STRIPE_SECRET}
+
+resources:
+  Resources:
+    DemoIngestBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: demo-ingest
+
+    IngestJobs:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: IngestJobs
+
+    PacksTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: PacksTable
+        AttributeDefinitions:
+          - AttributeName: packId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: packId
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+
+    ChunksTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ChunksTable
+        AttributeDefinitions:
+          - AttributeName: chunkId
+            AttributeType: S
+          - AttributeName: packId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: chunkId
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: packId-index
+            KeySchema:
+              - AttributeName: packId
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+        BillingMode: PAY_PER_REQUEST
+
+    TraceTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: TraceTable
+        AttributeDefinitions:
+          - AttributeName: traceId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: traceId
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST 
