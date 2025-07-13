@@ -1,45 +1,26 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import { NextResponse } from 'next/server';
+import { exec } from 'node:child_process';
+import { promisify } from 'node:util';
 
 const execAsync = promisify(exec);
 
-export async function POST(request: NextRequest) {
-  try {
-    const { query } = await request.json();
-    
-    if (!query || typeof query !== 'string') {
-      return NextResponse.json({ error: 'Missing or invalid query' }, { status: 400 });
-    }
+// POST /api/baseline
+export async function POST(req: Request): Promise<Response> {
+  const { query } = await req.json();
 
-    // Escape quotes in the query to prevent shell injection
-    const escapedQuery = query.replace(/"/g, '\\"');
-    
-    // Execute the baseline CLI script
-    const cmd = `npx ts-node ../../../../baseline/index.ts "${escapedQuery}"`;
-    
-    return new Promise((resolve) => {
-      exec(cmd, {
-        cwd: process.cwd(),
-        env: {
-          ...process.env,
-          OPENAI_API_KEY: process.env.OPENAI_API_KEY,
-          PINECONE_API_KEY: process.env.PINECONE_API_KEY,
-          PINECONE_ENV: process.env.PINECONE_ENV,
-        },
-      }, (err, stdout, stderr) => {
-        if (err) {
-          console.error('baseline exec error', err, stderr);
-          resolve(NextResponse.json({ error: 'baseline_failed' }, { status: 500 }));
-        } else {
-          resolve(NextResponse.json({ answer: stdout.trim() }));
-        }
-      });
-    });
-  } catch (error) {
-    console.error('Error executing baseline script:', error);
+  try {
+    // Run the baseline script with npx ts-node
+    const cmd = `npx ts-node ../../../../baseline/index.ts "${query.replaceAll(
+      '"',
+      '\\"'
+    )}"`;
+    const { stdout } = await execAsync(cmd, { maxBuffer: 1024 * 1024 });
+
+    return NextResponse.json({ answer: stdout.trim() }, { status: 200 });
+  } catch (err: any) {
+    console.error('baseline exec error:', err);
     return NextResponse.json(
-      { error: 'Failed to process query' }, 
+      { error: 'baseline_failed' },
       { status: 500 }
     );
   }
