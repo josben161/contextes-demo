@@ -16,9 +16,10 @@ export async function POST(request: NextRequest) {
     const escapedQuery = query.replace(/"/g, '\\"');
     
     // Execute the baseline CLI script
-    const { stdout, stderr } = await execAsync(
-      `pnpm ts-node ../../../../baseline/index.ts "${escapedQuery}"`,
-      {
+    const cmd = `npx ts-node ../../../../baseline/index.ts "${escapedQuery}"`;
+    
+    return new Promise((resolve) => {
+      exec(cmd, {
         cwd: process.cwd(),
         env: {
           ...process.env,
@@ -26,14 +27,15 @@ export async function POST(request: NextRequest) {
           PINECONE_API_KEY: process.env.PINECONE_API_KEY,
           PINECONE_ENV: process.env.PINECONE_ENV,
         },
-      }
-    );
-
-    if (stderr) {
-      console.error('Baseline script stderr:', stderr);
-    }
-
-    return NextResponse.json({ answer: stdout.trim() }, { status: 200 });
+      }, (err, stdout, stderr) => {
+        if (err) {
+          console.error('baseline exec error', err, stderr);
+          resolve(NextResponse.json({ error: 'baseline_failed' }, { status: 500 }));
+        } else {
+          resolve(NextResponse.json({ answer: stdout.trim() }));
+        }
+      });
+    });
   } catch (error) {
     console.error('Error executing baseline script:', error);
     return NextResponse.json(
