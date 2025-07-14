@@ -5,8 +5,8 @@ export async function baselineAnswer(query: string): Promise<string> {
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   const pinecone = new Pinecone({
     apiKey: process.env.PINECONE_API_KEY!,
-    host: process.env.PINECONE_HOST!,
-  } as any);
+    controllerHostUrl: process.env.PINECONE_HOST!, // Use your full Pinecone host URL here
+  });
 
   const index = pinecone.index('baseline-demo');
   
