@@ -1,3 +1,5 @@
 node_modules/
 packages/backend/.env.aws
 .serverless/
+packages/backend/.serverless/
+packages/backend/.env.aws
