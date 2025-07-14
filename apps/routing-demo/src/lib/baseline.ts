@@ -8,7 +8,7 @@ export async function baselineAnswer(query: string): Promise<string> {
     controllerHostUrl: process.env.PINECONE_HOST!, // Use your full Pinecone host URL here
   });
 
-  const index = pinecone.index('baseline-demo');
+  const index = pinecone.index('quickstart');
   
   // Create embedding for the query
   const queryEmbedding = await openai.embeddings.create({
