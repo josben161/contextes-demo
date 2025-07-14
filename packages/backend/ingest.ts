@@ -1,7 +1,7 @@
 // Required environment variables: BUCKET, INGEST_JOBS_URL
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
-import { APIGatewayProxyHandler } from 'aws-lambda';
+import type { Handler } from 'aws-lambda';
 import Busboy from 'busboy';
 import { Buffer } from 'buffer';
 // If you see type errors for process or Buffer, run: npm i --save-dev @types/node
@@ -12,7 +12,7 @@ const sqs = new SQSClient({});
 const BUCKET = process.env.BUCKET!;
 const SQS_URL = process.env.INGEST_JOBS_URL!;
 
-export const handler: APIGatewayProxyHandler = async (event) => {
+export const handler: Handler = async (event: any) => {
   if (!event.headers['content-type'] && !event.headers['Content-Type']) {
     return { statusCode: 400, body: 'Missing Content-Type header' };
   }
