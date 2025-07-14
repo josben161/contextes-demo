@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { baselineAnswer } from '../../../../../baseline/src/lib';
+import { baselineAnswer } from '@/lib/baseline';
 
 export async function POST(req: Request) {
   const { query } = await req.json();
