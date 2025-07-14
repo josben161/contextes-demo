@@ -5,9 +5,10 @@ export async function baselineAnswer(query: string): Promise<string> {
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   const pinecone = new Pinecone({
     apiKey: process.env.PINECONE_API_KEY!,
-  });
+    host: process.env.PINECONE_HOST!,
+  } as any);
 
-  const index = pinecone.index('baseline-demo', process.env.PINECONE_ENV!);
+  const index = pinecone.index('baseline-demo');
   
   // Create embedding for the query
   const queryEmbedding = await openai.embeddings.create({
